@@ -1,9 +1,10 @@
+#!/bin/bash
 # Setup nvm and install pre-req
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.1/install.sh | bash
 nvm install --lts
 npm install
 
-set -e  # Exit immediately if any command fails
+set -e
 
 # Spawn Bitcoind, and provide execution permission.
 docker compose up -d
@@ -28,9 +29,7 @@ done
 chmod +x ./rust/run-rust.sh
 chmod +x ./run.sh
 
-# Run the test scripts
 /bin/bash run.sh
 npm run test
 
-# Stop the docker.
 docker compose down -v
