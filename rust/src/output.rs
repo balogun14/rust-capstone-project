@@ -3,6 +3,9 @@ use std::io::Write;
 
 use crate::extract::ExtractedTx;
 
+// Writes the ten required fields to a file, one per line.
+// Amounts are formatted with 8 decimal places to match the convention
+// used by Bitcoin Core in its JSON-RPC responses.
 pub fn write(path: &str, tx: &ExtractedTx) -> std::io::Result<()> {
     let mut file = File::create(path)?;
     writeln!(file, "{}", tx.txid)?;
@@ -38,6 +41,8 @@ mod tests {
         }
     }
 
+    // Writes a sample ExtractedTx to a temporary file and verifies that
+    // the output matches the exepected 10-line format.
     #[test]
     fn test_write_output_format() {
         let tx = sample_tx();

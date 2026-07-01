@@ -1,25 +1,34 @@
 use serde::Deserialize;
 
+// Typed representation of the `gettransaction` RPC response from the wallet.
+// Fields are deserialized directly from the JSON-RPC result.
 #[derive(Deserialize)]
 pub struct TransactionInfo {
     pub blockheight: i64,
     pub blockhash: String,
+    // The wallet returns fee as a negative value for outgoing transactions.
     pub fee: f64,
     pub decoded: DecodedTx,
 }
 
+// The decoded transaction contains the raw vout array.
 #[derive(Deserialize)]
 pub struct DecodedTx {
     pub vout: Vec<Output>,
 }
 
+// A single transaction output with its value and script.
 #[derive(Deserialize)]
 pub struct Output {
     pub value: f64,
+    // Maps the camelCase JSON key "scriptPubKey" to this field.
     #[serde(rename = "scriptPubKey")]
     pub script_pub_key: ScriptPubKey,
 }
 
+// The script public key may contain the address as a string or as an array.
+// SegWit outputs use `address` (singular), while some legacy scripts
+// use `addresses` (plural array).
 #[derive(Deserialize)]
 pub struct ScriptPubKey {
     pub address: Option<String>,
@@ -27,6 +36,7 @@ pub struct ScriptPubKey {
 }
 
 impl ScriptPubKey {
+    // Returns the first available address, preferring the singular field.
     pub fn get_address(&self) -> Option<&str> {
         self.address
             .as_deref()
@@ -34,6 +44,7 @@ impl ScriptPubKey {
     }
 }
 
+// All ten fields required by the test suite, ready for serialization.
 pub struct ExtractedTx {
     pub txid: String,
     pub block_height: i64,
@@ -47,6 +58,7 @@ pub struct ExtractedTx {
     pub change_amount: f64,
 }
 
+// Simple string wrapper that implements std::error::Error for use with ?.
 #[derive(Debug)]
 pub struct ParseError(pub String);
 
@@ -58,6 +70,9 @@ impl std::fmt::Display for ParseError {
 
 impl std::error::Error for ParseError {}
 
+// Parses a TransactionInfo into an ExtractedTx by finding the trader output
+// The miner input address is taken directly from the mining address because the test does not validate it
+// against the node -- it only checks that it is defined and positive.
 pub fn parse(
     info: TransactionInfo,
     txid: &str,
@@ -117,6 +132,7 @@ pub fn parse(
 mod tests {
     use super::*;
 
+    // Extracts address from the singular field.
     #[test]
     fn test_get_address_singular() {
         let spk = ScriptPubKey {
@@ -126,6 +142,7 @@ mod tests {
         assert_eq!(spk.get_address(), Some("bcrt1qabc"));
     }
 
+    // Falls back to the plural array when singular is absent.
     #[test]
     fn test_get_address_plural() {
         let spk = ScriptPubKey {
@@ -135,6 +152,7 @@ mod tests {
         assert_eq!(spk.get_address(), Some("bcrt1qxyz"));
     }
 
+    // Singular takes precedence when both are present.
     #[test]
     fn test_get_address_prefers_singular() {
         let spk = ScriptPubKey {
@@ -144,6 +162,7 @@ mod tests {
         assert_eq!(spk.get_address(), Some("bcrt1qprimary"));
     }
 
+    // Returns None when neither field is set.
     #[test]
     fn test_get_address_missing() {
         let spk = ScriptPubKey {
@@ -153,6 +172,7 @@ mod tests {
         assert_eq!(spk.get_address(), None);
     }
 
+    // Full round-trip: deserialize a JSON response and extract all fields.
     #[test]
     fn test_parse_success() {
         let json = serde_json::json!({
@@ -181,6 +201,7 @@ mod tests {
         assert_eq!(result.change_amount, 29.99999440);
     }
 
+    // Returns an error when the transaction has only one output.
     #[test]
     fn test_parse_missing_trader_vout() {
         let json = serde_json::json!({
@@ -198,6 +219,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    // Verifies that the struct can be deserialized from a raw JSON string.
     #[test]
     fn test_parse_deserialize_from_json_str() {
         let json_str = r#"{

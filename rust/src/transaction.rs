@@ -3,10 +3,14 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 use std::str::FromStr;
 
+// Helper that wraps a string message into a boxed error for use with ?.
 fn rpc_err(msg: &str) -> Box<dyn std::error::Error> {
     Box::new(std::io::Error::other(msg))
 }
 
+// Sends `amount` BTC to `addr` using exactly one UTXO from the wallet.
+// Picks a single spendable UTXO via listunspent and passes it as the
+// `inputs` option to the `send` RPC. Returns the transaction ID.
 pub fn send_to(
     rpc: &Client,
     addr: &str,
@@ -55,6 +59,8 @@ pub fn send_to(
     Ok(txid)
 }
 
+// Mines `n` blocks to `addr` using the generatetoaddress RPC.
+// The `rpc` client must point to the node, not a wallet.
 pub fn mine_blocks(rpc: &Client, n: u64, addr: &str) -> Result<Value, Box<dyn std::error::Error>> {
     let args = [json!(n), json!(addr)];
     Ok(rpc.call("generatetoaddress", &args)?)
